@@ -1,4 +1,4 @@
-export type Recycler<A = any> = {
+export type Thread<A = any> = {
 	Spawn: (Function:(...A) -> (), ...A) -> thread,
 	Defer: (Function:(...A) -> (), ...A) -> thread,
 	Delay: (Duration:number,Function:(...A) -> (), ...A) -> thread,
@@ -29,21 +29,21 @@ local function GetThread():thread
 	return Thread
 end
 
-local Recycler = {} :: Recycler<any>
+local Module = {} :: Thread<any>
 
-function Recycler.Spawn(Function, ...)
+function Module.Spawn(Function, ...)
 	local Thread = GetThread()
-	return task.spawn(Thread, Function, ...)
+	return task.spawn(Thread, Function,Thread, ...)
 end
 
-function Recycler.Defer(Function, ...)
+function Module.Defer(Function, ...)
 	local Thread = GetThread()
-	return task.defer(Thread, Function, ...)
+	return task.defer(Thread, Function,Thread, ...)
 end
 
-function Recycler.Delay(Duration, Function, ...)
+function Module.Delay(Duration, Function, ...)
 	local Thread = GetThread()
-	return task.delay(Duration, Thread, Function, ...)
+	return task.delay(Duration, Thread, Function,Thread, ...)
 end
 
-return Recycler
+return Module
