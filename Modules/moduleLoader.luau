@@ -1,4 +1,3 @@
---!strict
 export type Phase = "Init"|"Ready"
 
 type RequiredModule = {
@@ -12,39 +11,38 @@ type ModuleThing = {
 
 local RequiredModules:{[number]:ModuleThing} = {}
 local PriorityTable:{number} = {}
-local Recycler = require(script.Parent.MantisThreadRecycler)
+local Recycler = require(script.Parent.ThreadRecycler)
 
 local function RequireModules(ModuleParent:Instance)
 
 
-    for _, Module:ModuleScript? in ModuleParent:GetDescendants() do
-        if not Module:IsA("ModuleScript") then continue end
+	for _, Module in ModuleParent:QueryDescendants("ModuleScript") :: {ModuleScript} do
 
-        local Success, Result = pcall(require, Module)
-        
-        if Success then
-            local Priority = Module:GetAttribute("Priority") :: number
-            if type(Priority) ~= "number" then 
-                warn("[ModuleLoader] priority isn't a number for: ",Module.Name)
-                Priority = 1
-            end
-            if not RequiredModules[Priority] then
-                RequiredModules[Priority] = {}
-                table.insert(PriorityTable, Priority)
-            end
+	    local Success, Result = pcall(require, Module)
+	    
+	    if Success then
+	        local Priority = Module:GetAttribute("Priority") :: number
+	        if typeof(Priority) ~= "number" then 
+	            warn("[ModuleLoader] priority isn't a number for: ",Module.Name)
+	            Priority = 1
+			end
+			
+	        if RequiredModules[Priority] == nil then
+	            RequiredModules[Priority] = {}
+	            table.insert(PriorityTable, Priority)
+	        end
 
-            RequiredModules[Priority][Module.Name] = Result
-        else
-            warn("[ModuleLoader] failed to require: ", Module.Name, Result)
-        end
-        
-    end
-    table.sort(PriorityTable, function(a:number, b:number)
-        return a < b
-    end)
+	        RequiredModules[Priority][Module.Name] = Result
+	    else
+	        warn("[ModuleLoader] failed to require: ", Module.Name, Result)
+	    end
 
-    
-end 
+	    table.sort(PriorityTable, function(a:number, b:number)
+	        return a < b
+	    end)
+
+	end 
+end
 
 local function StartPhase(Phase:Phase)
     
@@ -60,7 +58,7 @@ local function StartPhase(Phase:Phase)
 			if PhaseFunction and type(PhaseFunction) == "function" then
 				Recycler.Defer(function()
 					local Success, Err = pcall(PhaseFunction)
-					if not Success then
+					if Success == false then
 						warn(`[ModuleLoader] error in {Phase}:`, Err)
 					end
 				end)
