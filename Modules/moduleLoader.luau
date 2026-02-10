@@ -1,3 +1,4 @@
+--!strict
 export type Phase = "Init"|"Ready"
 
 type RequiredModule = {
@@ -16,56 +17,66 @@ local Recycler = require(script.Parent.ThreadRecycler)
 local function RequireModules(ModuleParent:Instance)
 
 
-	for _, Module in ModuleParent:QueryDescendants("ModuleScript") :: {ModuleScript} do
+    for _, Module in ModuleParent:QueryDescendants("ModuleScript") ::{ModuleScript} do
+		if Module:GetAttribute("Disabled") == true then continue end
+		
+        local Success, Result = pcall(require, Module)
+        
+        if Success then
+            local Priority = Module:GetAttribute("Priority") :: number
+            if typeof(Priority) ~= "number" then 
+                warn("[ModuleLoader] priority isn't a number for: ",Module.Name)
+                Priority = 1
+            end
+            if RequiredModules[Priority] == nil then
+                RequiredModules[Priority] = {}
+                table.insert(PriorityTable, Priority)
+            end
 
-	    local Success, Result = pcall(require, Module)
-	    
-	    if Success then
-	        local Priority = Module:GetAttribute("Priority") :: number
-	        if typeof(Priority) ~= "number" then 
-	            warn("[ModuleLoader] priority isn't a number for: ",Module.Name)
-	            Priority = 1
-			end
-			
-	        if RequiredModules[Priority] == nil then
-	            RequiredModules[Priority] = {}
-	            table.insert(PriorityTable, Priority)
-	        end
+            RequiredModules[Priority][Module.Name] = Result
+        else
+            warn("[ModuleLoader] failed to require: ", Module.Name, Result)
+        end
+        
+    end
+    table.sort(PriorityTable, function(a:number, b:number)
+        return a < b
+    end)
 
-	        RequiredModules[Priority][Module.Name] = Result
-	    else
-	        warn("[ModuleLoader] failed to require: ", Module.Name, Result)
-	    end
-
-	    table.sort(PriorityTable, function(a:number, b:number)
-	        return a < b
-	    end)
-
-	end 
-end
+    
+end 
 
 local function StartPhase(Phase:Phase)
-    
+
+	local running = 0
+
     for _, Priority in PriorityTable  do
         local ModuleTable = RequiredModules[Priority]
 
-        if not ModuleTable then continue end
-        
+        if ModuleTable == nil then continue end
+
         for _, Module in ModuleTable do
-            
-            local PhaseFunction = Module[Phase]
-            
-			if PhaseFunction and type(PhaseFunction) == "function" then
+
+			local PhaseFunction = Module[Phase]
+
+			if PhaseFunction and typeof(PhaseFunction) == "function" then
+
+				running += 1
+
 				Recycler.Defer(function()
 					local Success, Err = pcall(PhaseFunction)
 					if Success == false then
 						warn(`[ModuleLoader] error in {Phase}:`, Err)
 					end
+					running -= 1
 				end)
-            end
-            
+			end
         end
-    end
+	end
+	
+	while running > 0 do
+		task.wait()
+	end
 
 end
 
