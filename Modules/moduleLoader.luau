@@ -1,4 +1,6 @@
 --!strict
+local TestService = game:GetService("TestService")
+
 export type Phase = "Init"|"Ready"
 
 type RequiredModule = {
@@ -9,20 +11,27 @@ type ModuleThing = {
     [string]:RequiredModule
 }
 
+local Recycler = require("./ThreadRecycler")
 
 local RequiredModules:{[number]:ModuleThing} = {}
 local PriorityTable:{number} = {}
-local Recycler = require(script.Parent.ThreadRecycler)
+
+local verbosePrints = false
+
+local function verbose(...)
+	if verbosePrints == true then
+		warn(...)
+	end
+end
 
 local function RequireModules(ModuleParent:Instance)
-
 
     for _, Module in ModuleParent:QueryDescendants("ModuleScript") ::{ModuleScript} do
 		if Module:GetAttribute("Disabled") == true then continue end
 		
         local Success, Result = pcall(require, Module)
         
-        if Success then
+        if Success == true then
             local Priority = Module:GetAttribute("Priority") :: number
             if typeof(Priority) ~= "number" then 
                 warn("[ModuleLoader] priority isn't a number for: ",Module.Name)
@@ -42,8 +51,6 @@ local function RequireModules(ModuleParent:Instance)
     table.sort(PriorityTable, function(a:number, b:number)
         return a < b
     end)
-
-    
 end 
 
 local function StartPhase(Phase:Phase)
@@ -71,37 +78,44 @@ local function StartPhase(Phase:Phase)
 					running -= 1
 				end)
 			end
-        end
+		end
+		while running > 0 do
+			task.wait()
+		end
 	end
 	
-	while running > 0 do
-		task.wait()
-	end
+	
 
 end
 
 
 
-local function LoadModules(ModulesToRequire:Instance)
+local function LoadModules(ModulesToRequire:Instance, prettyPrint:boolean?)
 
 
     RequireModules(ModulesToRequire)
     
-    print(RequiredModules)
-    
     local StartTimeForPhase = os.clock()
     
-    warn("<- Initialising modules ->")
+	verbose("<- Initialising modules ->")
     StartPhase("Init")
     
-    warn("-> Took ", os.clock() - StartTimeForPhase, " seconds to Initialise modules <-")
-    warn("<- Readying modules ->")
+	verbose("-> Took ", os.clock() - StartTimeForPhase, " seconds to Initialise modules <-")
+	verbose("<- Readying modules ->")
     
     StartTimeForPhase = os.clock()
     StartPhase("Ready")
     
-    warn("-> Took ", os.clock() - StartTimeForPhase, " seconds to readying modules <-")
-    
+    verbose("-> Took ", os.clock() - StartTimeForPhase, " seconds to readying modules <-")
+	
+	
+	table.clear(RequiredModules)
+	table.clear(PriorityTable)
+	
+	if prettyPrint == true then
+		TestService:Message("Successfuly compiled No Pain, No Gain framework")
+	end
+	
 end
 
 
